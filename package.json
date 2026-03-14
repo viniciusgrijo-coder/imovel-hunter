@@ -1,0 +1,14 @@
+{
+  "name": "imovel-hunter-web",
+  "version": "1.0.0",
+  "description": "Caçador de imóveis de proprietário direto",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.0"
+  }
+}
