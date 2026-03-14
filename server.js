@@ -1,5 +1,5 @@
  // ============================================================
-//  ImóvelHunter Web — Servidor com API Mercado Livre (oficial)
+//  ImóvelHunter Web — Servidor corrigido com categorias certas
 // ============================================================
 const express = require('express');
 const https   = require('https');
@@ -44,11 +44,11 @@ function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-// ── Classificação proprietário vs imobiliária ────────────────
+// ── Classificação ────────────────────────────────────────────
 const KEYWORDS_IMOB = [
   'creci','imobiliária','imobiliaria','imóveis','imoveis','corretor',
   'consultoria','empreendimentos','construtora','incorporadora',
-  'realty','ltda','s.a.','eireli','administração','administracao'
+  'realty','ltda','s.a.','eireli','administração'
 ];
 const KEYWORDS_DONO = [
   'próprio dono','proprio dono','direto com o dono','dono direto',
@@ -67,60 +67,85 @@ function classificar(titulo, extra, vendedor) {
   return 'indefinido';
 }
 
-// ── Fetch JSON helper ────────────────────────────────────────
+// ── Fetch JSON ───────────────────────────────────────────────
 function fetchJSON(url) {
   return new Promise((resolve) => {
+    console.log('GET', url);
     const req = https.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible)',
+        'Accept': 'application/json'
+      }
     }, (res) => {
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch(e) { console.error('JSON parse error:', e.message); resolve(null); }
+      });
     });
-    req.on('error', () => resolve(null));
-    req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+    req.on('error', (e) => { console.error('Fetch error:', e.message); resolve(null); });
+    req.setTimeout(20000, () => { req.destroy(); resolve(null); });
   });
 }
 
-// ── Busca via API pública do Mercado Livre ───────────────────
-// MLB1459 = categoria Imóveis Brasil (gratuita, sem autenticação)
+// ── Categorias corretas de imóveis MLB ───────────────────────
+// MLB1459 = Imóveis (raiz)
+// MLB1467 = Apartamentos
+// MLB1466 = Casas
+// Operação: usamos query text para filtrar aluguel/venda
 async function buscarImoveis(config) {
   const results = [];
-  try {
-    const query = `${config.tipo === 'aluguel' ? 'aluguel' : 'venda'} ${config.cidade}`;
-    const url   = `https://api.mercadolibre.com/sites/MLB/search?category=MLB1459&q=${encodeURIComponent(query)}&price=${config.precoMin||'*'}-${config.precoMax||'*'}&limit=48`;
 
-    console.log('Buscando:', url);
-    const data = await fetchJSON(url);
+  // Monta queries para casas e apartamentos
+  const categorias = [
+    { id: 'MLB1467', nome: 'Apartamentos' },
+    { id: 'MLB1466', nome: 'Casas' }
+  ];
 
-    if (!data?.results?.length) {
-      console.log('Sem resultados. Resposta:', JSON.stringify(data).slice(0, 200));
-      return results;
-    }
+  for (const cat of categorias) {
+    try {
+      const query = `${config.tipo} ${config.cidade} ${config.estado}`;
+      // Filtro de preço
+      const priceFilter = (config.precoMin > 0 || config.precoMax > 0)
+        ? `&price=${config.precoMin || '*'}-${config.precoMax || '*'}`
+        : '';
 
-    console.log(`Encontrados ${data.results.length} itens`);
+      const url = `https://api.mercadolibre.com/sites/MLB/search?category=${cat.id}&q=${encodeURIComponent(query)}${priceFilter}&limit=50`;
+      const data = await fetchJSON(url);
 
-    data.results.forEach(item => {
-      const vendedor = item.seller?.nickname || '';
-      const attrs    = (item.attributes || []).map(a => `${a.name}: ${a.value_name}`).join(' ');
-      const classif  = classificar(item.title, attrs, vendedor);
+      if (!data) { console.log(`Sem resposta para ${cat.nome}`); continue; }
+      if (!data.results) { console.log(`Sem results para ${cat.nome}:`, JSON.stringify(data).slice(0,200)); continue; }
 
-      results.push({
-        id:            `ml-${item.id}`,
-        titulo:        item.title,
-        preco:         item.price ? `R$ ${item.price.toLocaleString('pt-BR')}` : 'Consulte',
-        precoNum:      item.price || 0,
-        link:          item.permalink,
-        imagem:        (item.thumbnail || '').replace('-I.jpg', '-O.jpg'),
-        localizacao:   `${item.address?.city_name || config.cidade}, ${item.address?.state_name || config.estado}`,
-        anunciante:    vendedor,
-        classificacao: classif,
-        descricao:     attrs.slice(0, 200),
-        site:          'Mercado Livre',
-        foundAt:       new Date().toISOString()
+      console.log(`${cat.nome}: ${data.results.length} itens encontrados`);
+
+      data.results.forEach(item => {
+        const vendedor = item.seller?.nickname || '';
+        const attrs    = (item.attributes || []).slice(0, 6).map(a => `${a.name}: ${a.value_name}`).join(' · ');
+        const classif  = classificar(item.title, attrs, vendedor);
+
+        results.push({
+          id:            `ml-${item.id}`,
+          titulo:        item.title,
+          preco:         item.price ? `R$ ${Math.round(item.price).toLocaleString('pt-BR')}` : 'Consulte',
+          precoNum:      item.price || 0,
+          link:          item.permalink,
+          imagem:        (item.thumbnail || '').replace('-I.jpg', '-O.jpg'),
+          localizacao:   [item.address?.city_name, item.address?.state_name].filter(Boolean).join(', ') || config.cidade,
+          anunciante:    vendedor,
+          classificacao: classif,
+          descricao:     attrs,
+          site:          'Mercado Livre',
+          categoria:     cat.nome,
+          foundAt:       new Date().toISOString()
+        });
       });
-    });
-  } catch(e) { console.error('Erro busca:', e.message); }
+    } catch(e) {
+      console.error(`Erro ao buscar ${cat.nome}:`, e.message);
+    }
+  }
+
+  console.log(`Total encontrado: ${results.length} imóveis`);
   return results;
 }
 
@@ -145,14 +170,14 @@ function sendWhatsApp(config, message) {
   req.write(body); req.end();
 }
 
-// ── Scan principal ───────────────────────────────────────────
+// ── Scan ─────────────────────────────────────────────────────
 let scanning = false;
 let lastScanResult = { added: 0, total: 0 };
 
 async function runScan() {
   if (scanning) return lastScanResult;
   scanning = true;
-  console.log('🔍 Iniciando varredura...');
+  console.log('\n🔍 Iniciando varredura...');
 
   const db          = loadDB();
   const existingIds = new Set(db.imoveis.map(i => i.id));
@@ -185,7 +210,7 @@ async function runScan() {
 
   lastScanResult = { added: novos.length, total: db.imoveis.length };
   scanning = false;
-  console.log(`✅ Concluído. +${novos.length} novos.`);
+  console.log(`✅ Concluído. +${novos.length} novos. Total: ${db.imoveis.length}\n`);
   return lastScanResult;
 }
 
@@ -203,6 +228,13 @@ setupCron();
 
 // ── Rotas ────────────────────────────────────────────────────
 app.get('/api/data',      (req, res) => res.json(loadDB()));
+
+app.get('/api/test',      async (req, res) => {
+  // Rota de teste para verificar se a API ML está respondendo
+  const data = await fetchJSON('https://api.mercadolibre.com/sites/MLB/search?category=MLB1467&q=aluguel+Cabo+Frio&limit=3');
+  res.json({ ok: !!data?.results, total: data?.results?.length || 0, sample: data?.results?.[0] || null });
+});
+
 app.post('/api/config',   (req, res) => {
   const db = loadDB();
   db.config = { ...db.config, ...req.body };
@@ -231,4 +263,5 @@ app.post('/api/limpar',   (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🏠 ImóvelHunter rodando em http://localhost:${PORT}`);
+  console.log(`🧪 Teste a API em: http://localhost:${PORT}/api/test`);
 });
