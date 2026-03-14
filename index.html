@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#0a0a12"/>
+<title>ImóvelHunter 🏠</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a12;--s1:#11111c;--s2:#18182a;--s3:#21213a;
+  --border:#2a2a45;--accent:#00d4aa;--red:#ff6b6b;--gold:#ffd166;
+  --blue:#4a9eff;--text:#eeeef8;--muted:#7070a0;--r:14px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow:hidden}
+
+/* ── LAYOUT ── */
+.shell{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:230px;background:var(--s1);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;
+}
+@media(max-width:768px){
+  .sidebar{position:fixed;left:-230px;top:0;bottom:0;z-index:100;
+    transition:left .3s;box-shadow:0 0 40px rgba(0,0,0,.6)}
+  .sidebar.open{left:0}
+}
+.brand{padding:20px 16px 14px;border-bottom:1px solid var(--border)}
+.brand-icon{font-size:30px;margin-bottom:4px}
+.brand-name{font-family:'Playfair Display',serif;font-size:19px;color:var(--accent)}
+.brand-tag{font-size:10px;color:var(--muted);margin-top:2px}
+
+.nav{flex:1;padding:10px 8px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;
+  cursor:pointer;transition:all .15s;margin-bottom:2px;font-size:13px;
+  font-weight:500;color:var(--muted);
+}
+.nav-item:hover{background:var(--s2);color:var(--text)}
+.nav-item.active{background:rgba(0,212,170,.1);color:var(--accent)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+
+.sidebar-bottom{padding:14px;border-top:1px solid var(--border)}
+.stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.stat-val{font-size:14px;font-weight:700}
+.stat-val.g{color:var(--accent)}.stat-val.r{color:var(--red)}.stat-val.y{color:var(--gold)}
+
+.scan-btn{
+  width:100%;padding:11px;background:var(--accent);border:none;border-radius:10px;
+  color:#000;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s;margin-top:8px;display:flex;
+  align-items:center;justify-content:center;gap:7px;
+}
+.scan-btn:hover{background:#00f0c0;transform:translateY(-1px)}
+.scan-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.last-scan{font-size:10px;color:var(--muted);text-align:center;margin-top:6px}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+.topbar{
+  padding:13px 18px;background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.menu-btn{
+  display:none;background:none;border:none;color:var(--text);font-size:22px;
+  cursor:pointer;padding:4px 8px;border-radius:8px;
+}
+@media(max-width:768px){.menu-btn{display:flex}}
+.topbar-title{font-family:'Playfair Display',serif;font-size:17px;flex:1}
+.search-box{
+  display:flex;align-items:center;gap:7px;background:var(--s2);
+  border:1px solid var(--border);border-radius:10px;padding:7px 12px;
+  width:220px;
+}
+@media(max-width:600px){.search-box{width:140px}}
+.search-box input{
+  background:none;border:none;color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:13px;outline:none;width:100%;
+}
+.search-box input::placeholder{color:var(--muted)}
+
+.filters{
+  padding:9px 18px;background:var(--s1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex-shrink:0;
+}
+.chip{
+  padding:5px 12px;border-radius:20px;border:1px solid var(--border);
+  font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;
+  color:var(--muted);background:var(--s2);white-space:nowrap;
+}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.active{background:rgba(0,212,170,.12);border-color:var(--accent);color:var(--accent)}
+.chip.r.active{background:rgba(255,107,107,.12);border-color:var(--red);color:var(--red)}
+.chip.y.active{background:rgba(255,209,102,.12);border-color:var(--gold);color:var(--gold)}
+.filters-end{margin-left:auto}
+.sort-sel{
+  background:var(--s2);border:1px solid var(--border);color:var(--text);
+  font-family:'Outfit',sans-serif;font-size:11px;padding:5px 10px;
+  border-radius:8px;outline:none;cursor:pointer;
+}
+
+/* ── LISTA ── */
+.list{flex:1;overflow-y:auto;padding:16px 18px}
+.list::-webkit-scrollbar{width:5px}
+.list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+
+/* ── CARD ── */
+.card{
+  background:var(--s1);border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;transition:all .2s;position:relative;
+}
+.card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,170,.1)}
+.badge{
+  position:absolute;top:10px;left:10px;padding:3px 10px;border-radius:20px;
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;z-index:2;
+}
+.badge.proprietario{background:rgba(0,212,170,.9);color:#000}
+.badge.imobiliaria{background:rgba(255,107,107,.85);color:#fff}
+.badge.indefinido{background:rgba(112,112,160,.7);color:#fff}
+.fav-btn{
+  position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);border:none;
+  width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:15px;
+  display:flex;align-items:center;justify-content:center;z-index:2;transition:all .15s;
+}
+.fav-btn:hover{background:rgba(255,209,102,.2)}
+.fav-btn.on{color:var(--gold)}
+.card-thumb{
+  width:100%;height:155px;background:var(--s2);display:flex;
+  align-items:center;justify-content:center;font-size:38px;overflow:hidden;
+}
+.card-thumb img{width:100%;height:155px;object-fit:cover}
+.card-body{padding:12px 14px}
+.card-title{font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.4;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card-price{font-size:19px;font-weight:800;color:var(--accent);margin-bottom:6px}
+.card-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px}
+.card-loc{font-size:11px;color:var(--muted)}
+.site-tag{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.site-tag.OLX{background:rgba(153,0,255,.15);color:#c084fc}
+.site-tag.Zap{background:rgba(255,165,0,.15);color:#ffaa44}
+.card-desc{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card-actions{display:flex;gap:6px}
+.cbtn{
+  flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);
+  font-family:'Outfit',sans-serif;font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .15s;background:var(--s2);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.cbtn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,212,170,.06)}
+.cbtn.p{background:var(--accent);color:#000;border-color:var(--accent)}
+.cbtn.p:hover{background:#00f0c0}
+.cbtn.d:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.06)}
+.card-time{font-size:9px;color:var(--muted);text-align:right;margin-top:6px}
+
+/* ── VAZIO ── */
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 20px;color:var(--muted);text-align:center;flex:1;
+}
+.empty-icon{font-size:52px;margin-bottom:14px;opacity:.5}
+.empty-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
+.empty-sub{font-size:13px;line-height:1.6}
+
+/* ── CONFIG ── */
+.config-wrap{flex:1;overflow-y:auto;padding:20px 22px}
+.config-wrap::-webkit-scrollbar{width:5px}
+.config-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.csection{margin-bottom:24px}
+.csection-title{
+  font-family:'Playfair Display',serif;font-size:15px;color:var(--accent);
+  margin-bottom:14px;display:flex;align-items:center;gap:8px;
+}
+.csection-title::after{content:'';flex:1;height:1px;background:var(--border);margin-left:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg.full{grid-column:1/-1}
+.flabel{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.finput{
+  padding:9px 12px;background:var(--s2);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:13px;outline:none;transition:border-color .2s;width:100%;
+}
+.finput:focus{border-color:var(--accent)}
+.finput::placeholder{color:var(--muted)}
+.fhint{font-size:10px;color:var(--muted);line-height:1.5}
+.fhint a{color:var(--blue);cursor:pointer;text-decoration:none}
+.fhint a:hover{text-decoration:underline}
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+  background:var(--s2);border-radius:10px;border:1px solid var(--border);
+}
+.tname{font-size:13px;font-weight:600}
+.tdesc{font-size:11px;color:var(--muted);margin-top:2px}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.tslider{position:absolute;inset:0;background:var(--border);border-radius:12px;cursor:pointer;transition:.2s}
+.tslider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked + .tslider{background:var(--accent)}
+.toggle input:checked + .tslider::before{transform:translateX(20px)}
+.save-btn{
+  padding:11px 28px;background:var(--accent);border:none;border-radius:10px;
+  color:#000;font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .2s;margin-top:6px;
+}
+.save-btn:hover{background:#00f0c0;transform:translateY(-1px)}
+
+/* ── PROGRESS BAR ── */
+.progress{
+  position:fixed;top:0;left:0;right:0;height:3px;z-index:200;
+  background:transparent;overflow:hidden;display:none;
+}
+.progress.on{display:block}
+.progress::after{
+  content:'';position:absolute;left:-40%;width:40%;height:100%;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:prog 1.2s infinite linear;
+}
+@keyframes prog{from{left:-40%}to{left:100%}}
+
+/* ── OVERLAY SIDEBAR MOBILE ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+@media(max-width:768px){.overlay.on{display:block}}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:16px;right:16px;padding:10px 16px;
+  background:var(--s2);border:1px solid var(--border);border-radius:10px;
+  font-size:12px;font-weight:600;opacity:0;transition:all .3s;
+  pointer-events:none;z-index:500;transform:translateY(8px);
+}
+.toast.on{opacity:1;transform:translateY(0)}
+
+@keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card{animation:cardIn .2s ease both}
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+<div class="toast" id="toast"></div>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🔍</div>
+      <div class="brand-name">ImóvelHunter</div>
+      <div class="brand-tag">Só proprietários diretos</div>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" id="nav-imoveis" onclick="showPage('imoveis')">
+        <span class="nav-icon">🏠</span> Imóveis
+      </div>
+      <div class="nav-item" id="nav-favoritos" onclick="showPage('favoritos')">
+        <span class="nav-icon">⭐</span> Favoritos
+      </div>
+      <div class="nav-item" id="nav-config" onclick="showPage('config')">
+        <span class="nav-icon">⚙️</span> Configurações
+      </div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="stat-row"><span class="stat-lbl">Total</span><span class="stat-val y" id="sTotal">0</span></div>
+      <div class="stat-row"><span class="stat-lbl">✅ Proprietários</span><span class="stat-val g" id="sProp">0</span></div>
+      <div class="stat-row"><span class="stat-lbl">❌ Imobiliárias</span><span class="stat-val r" id="sImob">0</span></div>
+      <button class="scan-btn" id="scanBtn" onclick="runScan()">
+        <span id="scanIcon">🔍</span><span id="scanTxt">Buscar Agora</span>
+      </button>
+      <div class="last-scan" id="lastScan">Nunca executado</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- PAGE IMÓVEIS -->
+    <div id="page-imoveis" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <div class="topbar-title">Imóveis Encontrados</div>
+        <div class="search-box">
+          <span>🔎</span>
+          <input type="text" id="searchInput" placeholder="Buscar..." oninput="renderCards()"/>
+        </div>
+      </div>
+      <div class="filters">
+        <div class="chip active" data-f="todos"        onclick="setFilter(this,'todos')">Todos</div>
+        <div class="chip"        data-f="proprietario" onclick="setFilter(this,'proprietario')">✅ Proprietários</div>
+        <div class="chip r"      data-f="imobiliaria"  onclick="setFilter(this,'imobiliaria')">❌ Imobiliárias</div>
+        <div class="chip y"      data-f="indefinido"   onclick="setFilter(this,'indefinido')">❓ Indefinido</div>
+        <div class="filters-end">
+          <select class="sort-sel" id="sortSel" onchange="renderCards()">
+            <option value="newest">Mais recentes</option>
+            <option value="asc">Menor preço</option>
+            <option value="desc">Maior preço</option>
+          </select>
+        </div>
+      </div>
+      <div class="list" id="cardsArea"></div>
+    </div>
+
+    <!-- PAGE FAVORITOS -->
+    <div id="page-favoritos" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <div class="topbar-title">⭐ Favoritos</div>
+      </div>
+      <div class="list" id="favArea"></div>
+    </div>
+
+    <!-- PAGE CONFIG -->
+    <div id="page-config" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="topbar">
+        <button class="menu-btn" onclick="openSidebar()">☰</button>
+        <div class="topbar-title">⚙️ Configurações</div>
+      </div>
+      <div class="config-wrap">
+
+        <div class="csection">
+          <div class="csection-title">🎯 Filtros de Busca</div>
+          <div class="form-grid">
+            <div class="fg full"><div class="flabel">Cidade</div>
+              <input class="finput" id="cfgCidade" placeholder="Ex: Cabo Frio"/></div>
+            <div class="fg"><div class="flabel">Preço Mínimo (R$)</div>
+              <input class="finput" type="number" id="cfgMin" placeholder="0"/></div>
+            <div class="fg"><div class="flabel">Preço Máximo (R$)</div>
+              <input class="finput" type="number" id="cfgMax" placeholder="2000"/></div>
+            <div class="fg"><div class="flabel">Tipo</div>
+              <select class="finput" id="cfgTipo">
+                <option value="aluguel">Aluguel</option>
+                <option value="venda">Venda</option>
+              </select></div>
+            <div class="fg"><div class="flabel">Intervalo (minutos)</div>
+              <input class="finput" type="number" id="cfgIntervalo" placeholder="30" min="5"/></div>
+          </div>
+        </div>
+
+        <div class="csection">
+          <div class="csection-title">⚡ Automação</div>
+          <div class="toggle-row">
+            <div><div class="tname">Busca Automática</div>
+              <div class="tdesc">Varre os sites automaticamente no intervalo definido</div></div>
+            <label class="toggle"><input type="checkbox" id="cfgAtivo"/><span class="tslider"></span></label>
+          </div>
+        </div>
+
+        <div class="csection">
+          <div class="csection-title">📱 Alerta WhatsApp</div>
+          <div class="form-grid">
+            <div class="fg full"><div class="flabel">Token de Acesso (Meta API)</div>
+              <input class="finput" type="password" id="cfgToken" placeholder="EAAxxxxx..."/>
+              <div class="fhint">Obtenha em <a href="https://developers.facebook.com/apps/" target="_blank">developers.facebook.com</a> → Seu App → WhatsApp → API Setup</div></div>
+            <div class="fg"><div class="flabel">Phone Number ID</div>
+              <input class="finput" id="cfgPhoneId" placeholder="123456789012345"/></div>
+            <div class="fg"><div class="flabel">Seu número (com DDI)</div>
+              <input class="finput" id="cfgPhone" placeholder="5522999998888"/></div>
+          </div>
+        </div>
+
+        <button class="save-btn" onclick="saveConfig()">💾 Salvar Configurações</button>
+        <button class="save-btn" style="background:var(--s2);color:var(--red);border:1px solid var(--red);margin-left:8px" onclick="limpar()">🗑️ Limpar tudo</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let db = null;
+let currentFilter = 'todos';
+
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method, headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  return res.json();
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+async function init() {
+  db = await api('GET', '/api/data');
+  updateStats();
+  renderCards();
+  loadConfigForm();
+  if (db.lastScan) {
+    const d = new Date(db.lastScan);
+    document.getElementById('lastScan').textContent =
+      `Última busca: ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+  }
+}
+
+// ── SCAN ─────────────────────────────────────────────────────
+async function runScan() {
+  document.getElementById('progress').classList.add('on');
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('scanIcon').textContent = '⏳';
+  document.getElementById('scanTxt').textContent  = 'Buscando...';
+
+  const result = await api('POST', '/api/scan');
+
+  document.getElementById('progress').classList.remove('on');
+  document.getElementById('scanBtn').disabled = false;
+  document.getElementById('scanIcon').textContent = '🔍';
+  document.getElementById('scanTxt').textContent  = 'Buscar Agora';
+
+  showToast(`✅ +${result.added} novos imóveis encontrados!`);
+  const d = new Date();
+  document.getElementById('lastScan').textContent =
+    `Última busca: ${d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`;
+  await init();
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('sTotal').textContent = db.stats?.total || db.imoveis.length;
+  document.getElementById('sProp').textContent  = db.stats?.proprietarios || db.imoveis.filter(i=>i.classificacao==='proprietario').length;
+  document.getElementById('sImob').textContent  = db.stats?.imobiliarias  || db.imoveis.filter(i=>i.classificacao==='imobiliaria').length;
+}
+
+// ── FILTROS ───────────────────────────────────────────────────
+function setFilter(el, f) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = f;
+  renderCards();
+}
+
+// ── CARDS ─────────────────────────────────────────────────────
+function renderCards() {
+  const area   = document.getElementById('cardsArea');
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const sort   = document.getElementById('sortSel').value;
+  const favSet = new Set(db.favoritos);
+  const ignSet = new Set(db.ignorados);
+
+  let items = db.imoveis.filter(i => !ignSet.has(i.id));
+  if (currentFilter !== 'todos') items = items.filter(i => i.classificacao === currentFilter);
+  if (search) items = items.filter(i =>
+    i.titulo.toLowerCase().includes(search) ||
+    i.localizacao.toLowerCase().includes(search)
+  );
+  if (sort === 'asc')  items.sort((a,b) => (a.precoNum||0) - (b.precoNum||0));
+  if (sort === 'desc') items.sort((a,b) => (b.precoNum||0) - (a.precoNum||0));
+
+  if (!items.length) {
+    area.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-title">Nenhum imóvel aqui</div>
+      <div class="empty-sub">Clique em "Buscar Agora" para varrer OLX e Zap Imóveis<br>ou ajuste os filtros nas Configurações.</div>
+    </div>`;
+    return;
+  }
+  area.innerHTML = `<div class="grid">${items.map((i,idx) => cardHTML(i, favSet.has(i.id), idx)).join('')}</div>`;
+}
+
+function cardHTML(im, fav, idx) {
+  const bl  = im.classificacao === 'proprietario' ? '✅ Proprietário' : im.classificacao === 'imobiliaria' ? '❌ Imobiliária' : '❓ Indefinido';
+  const st  = im.site === 'OLX' ? 'OLX' : 'Zap';
+  const tm  = new Date(im.foundAt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const img = im.imagem
+    ? `<img src="${im.imagem}" onerror="this.parentElement.innerHTML='🏠'" loading="lazy"/>`
+    : '🏠';
+  return `
+  <div class="card" style="animation-delay:${idx*25}ms">
+    <div class="badge ${im.classificacao}">${bl}</div>
+    <button class="fav-btn ${fav?'on':''}" onclick="toggleFav('${im.id}')">${fav?'⭐':'☆'}</button>
+    <div class="card-thumb">${img}</div>
+    <div class="card-body">
+      <div class="card-title">${esc(im.titulo)}</div>
+      <div class="card-price">${im.preco || 'Consulte'}</div>
+      <div class="card-meta">
+        <span class="card-loc">📍 ${esc(im.localizacao)}</span>
+        <span class="site-tag ${st}">${im.site}</span>
+      </div>
+      ${im.descricao ? `<div class="card-desc">${esc(im.descricao)}</div>` : ''}
+      <div class="card-actions">
+        <button class="cbtn p" onclick="window.open('${im.link}','_blank')">🔗 Ver anúncio</button>
+        <button class="cbtn d" onclick="ignorar('${im.id}')">🚫 Ignorar</button>
+      </div>
+      <div class="card-time">Encontrado ${tm}</div>
+    </div>
+  </div>`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── FAVORITOS ─────────────────────────────────────────────────
+function renderFavs() {
+  const area   = document.getElementById('favArea');
+  const favSet = new Set(db.favoritos);
+  const items  = db.imoveis.filter(i => favSet.has(i.id));
+  if (!items.length) {
+    area.innerHTML = `<div class="empty"><div class="empty-icon">⭐</div><div class="empty-title">Nenhum favorito ainda</div><div class="empty-sub">Clique na estrela ☆ em qualquer imóvel para salvar aqui.</div></div>`;
+    return;
+  }
+  area.innerHTML = `<div class="grid">${items.map((i,idx) => cardHTML(i, true, idx)).join('')}</div>`;
+}
+
+async function toggleFav(id) {
+  await api('POST', '/api/favorito', { id });
+  db = await api('GET', '/api/data');
+  renderCards();
+  renderFavs();
+}
+
+async function ignorar(id) {
+  await api('POST', '/api/ignorar', { id });
+  db = await api('GET', '/api/data');
+  renderCards();
+  showToast('🚫 Imóvel ignorado');
+}
+
+// ── CONFIG ─────────────────────────────────────────────────────
+function loadConfigForm() {
+  const c = db.config;
+  document.getElementById('cfgCidade').value    = c.cidade || '';
+  document.getElementById('cfgMin').value       = c.precoMin || 0;
+  document.getElementById('cfgMax').value       = c.precoMax || 2000;
+  document.getElementById('cfgTipo').value      = c.tipo || 'aluguel';
+  document.getElementById('cfgIntervalo').value = c.intervaloMinutos || 30;
+  document.getElementById('cfgAtivo').checked   = c.ativo || false;
+  document.getElementById('cfgToken').value     = c.whatsappToken || '';
+  document.getElementById('cfgPhone').value     = c.whatsappPhone || '';
+  document.getElementById('cfgPhoneId').value   = c.whatsappPhoneId || '';
+}
+
+async function saveConfig() {
+  await api('POST', '/api/config', {
+    cidade:            document.getElementById('cfgCidade').value.trim(),
+    precoMin:          parseInt(document.getElementById('cfgMin').value) || 0,
+    precoMax:          parseInt(document.getElementById('cfgMax').value) || 2000,
+    tipo:              document.getElementById('cfgTipo').value,
+    intervaloMinutos:  parseInt(document.getElementById('cfgIntervalo').value) || 30,
+    ativo:             document.getElementById('cfgAtivo').checked,
+    whatsappToken:     document.getElementById('cfgToken').value.trim(),
+    whatsappPhone:     document.getElementById('cfgPhone').value.trim(),
+    whatsappPhoneId:   document.getElementById('cfgPhoneId').value.trim(),
+  });
+  showToast('✅ Configurações salvas!');
+  db = await api('GET', '/api/data');
+  updateStats();
+}
+
+async function limpar() {
+  if (!confirm('Limpar todos os imóveis encontrados?')) return;
+  await api('POST', '/api/limpar');
+  db = await api('GET', '/api/data');
+  updateStats();
+  renderCards();
+  showToast('🗑️ Lista limpa!');
+}
+
+// ── PÁGINAS ────────────────────────────────────────────────────
+function showPage(p) {
+  ['imoveis','favoritos','config'].forEach(x => {
+    document.getElementById(`page-${x}`).style.display = 'none';
+    document.getElementById(`nav-${x}`)?.classList.remove('active');
+  });
+  document.getElementById(`page-${p}`).style.display = 'flex';
+  document.getElementById(`nav-${p}`)?.classList.add('active');
+  if (p === 'favoritos') renderFavs();
+  closeSidebar();
+}
+
+function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('overlay').classList.add('on'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('on'); }
+
+// ── TOAST ──────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  setTimeout(() => t.classList.remove('on'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
